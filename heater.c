@@ -361,10 +361,14 @@ void heater_tick(heater_t h, temp_type_t type, uint16_t current_temp, uint16_t t
 		);
 
 		// rebase and limit factors
-		if (pid_output_intermed > 255)
+		if (pid_output_intermed > 255){
+		  if(t_error > 0 ) heaters_runtime[h].heater_i -= t_error; // un-integrate
 			pid_output = 255;
-		else if (pid_output_intermed < 0)
+		}
+		else if (pid_output_intermed < 0){
+		  if(t_error < 0 ) heaters_runtime[h].heater_i -= t_error; // un-integrate
 			pid_output = 0;
+		}
 		else
 			pid_output = pid_output_intermed & 0xFF;
 

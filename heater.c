@@ -308,21 +308,21 @@ void heater_tick(heater_t h, temp_type_t type, uint16_t current_temp, uint16_t t
 		heater_d = heaters_runtime[h].temp_history[heaters_runtime[h].temp_history_pointer] - current_temp;
 
 		// combine factors
-		int32_t pid_output_intermed = (((int32_t) heater_p) * heaters_pid[h].p_factor)+
-		  (((int32_t) heater_d) * heaters_pid[h].d_factor);
-		// desaturate the P&D sum
-		if (pid_output_intermed >   255 *PID_SCALE) pid_output_intermed =  255 *PID_SCALE;
-		if (pid_output_intermed <  -255 *PID_SCALE) pid_output_intermed = -255 *PID_SCALE;
-		pid_output_intermed += 	(((int32_t) heaters_runtime[h].heater_i) * heaters_pid[h].i_factor);
-		// rebase and backcalculate I to reset windup
-		if (pid_output_intermed > 255 * PID_SCALE){
-			// eliminate excess windup per http://www.controlguru.com/2008/021008.html
-			heaters_runtime[h].heater_i -= 16*(pid_output_intermed - 255*PID_SCALE)/heaters_pid[h].i_factor;
+		int32_t pid_output_intermed = (
+			(
+				(((int32_t) heater_p) * heaters_pid[h].p_factor) +
+				(((int32_t) heaters_runtime[h].heater_i) * heaters_pid[h].i_factor) +
+				(((int32_t) heater_d) * heaters_pid[h].d_factor)
+			) / PID_SCALE
+		);
+
+		// rebase and limit factors
+		if (pid_output_intermed > 255){
+		  if(t_error > 0 ) heaters_runtime[h].heater_i -= t_error; // un-integrate
 			pid_output = 255;
 		}
 		else if (pid_output_intermed < 0){
-			// eliminate excess windup
-			heaters_runtime[h].heater_i += 16*(-pid_output_intermed )/heaters_pid[h].i_factor;
+		  if(t_error < 0 ) heaters_runtime[h].heater_i -= t_error; // un-integrate
 			pid_output = 0;
 		}
 		else
